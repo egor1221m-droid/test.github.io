@@ -3,14 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mercari Shop</title>
+    <title>🛍️ Mercari Shop</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--tg-theme-bg-color);
@@ -30,6 +26,7 @@
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 14px;
+            cursor: pointer;
         }
         .search-box {
             width: 100%;
@@ -39,12 +36,25 @@
             background: var(--tg-theme-secondary-bg-color);
             color: var(--tg-theme-text-color);
             font-size: 16px;
-            margin-bottom: 16px;
+            margin-bottom: 8px;
         }
         .search-box:focus {
             outline: none;
             border-color: var(--tg-theme-button-color);
         }
+        .search-btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 16px;
+        }
+        .search-btn:active { opacity: 0.7; }
         .product-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -57,9 +67,7 @@
             cursor: pointer;
             transition: transform 0.2s;
         }
-        .product-card:active {
-            transform: scale(0.96);
-        }
+        .product-card:active { transform: scale(0.96); }
         .product-card img {
             width: 100%;
             height: 150px;
@@ -82,6 +90,10 @@
             margin-top: 4px;
             color: var(--tg-theme-button-color);
         }
+        .price-jpy {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color);
+        }
         .bottom-menu {
             position: fixed;
             bottom: 0;
@@ -103,19 +115,14 @@
             flex-direction: column;
             align-items: center;
             gap: 2px;
+            padding: 4px 12px;
         }
         .bottom-menu button.active {
             color: var(--tg-theme-button-color);
         }
-        .bottom-menu button .icon {
-            font-size: 22px;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
+        .bottom-menu button .icon { font-size: 22px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
         .cart-item {
             display: flex;
             justify-content: space-between;
@@ -145,382 +152,400 @@
             padding: 40px 20px;
             color: var(--tg-theme-hint-color);
         }
-        .empty-state .icon {
-            font-size: 48px;
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--tg-theme-hint-color);
+        }
+        .loading .icon {
+            font-size: 36px;
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            padding: 12px 24px;
+            border-radius: 12px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+        .order-item {
+            background: var(--tg-theme-secondary-bg-color);
+            border-radius: 12px;
+            padding: 12px;
             margin-bottom: 12px;
         }
-        .hidden {
-            display: none;
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .order-total {
+            text-align: right;
+            font-weight: 700;
+            margin-top: 8px;
+            border-top: 1px solid var(--tg-theme-hint-color);
+            padding-top: 8px;
         }
     </style>
 </head>
 <body>
 
-    <!-- ШАПКА -->
-    <div class="header">
-        <h2>🛍️ Mercari Shop</h2>
-        <div class="balance" id="balanceDisplay">💰 $0.00</div>
-    </div>
+<div id="toast" class="toast"></div>
 
-    <!-- ПОИСК -->
-    <input class="search-box" id="searchInput" placeholder="🔍 Найти товар..." type="text">
+<!-- ШАПКА -->
+<div class="header">
+    <h2>🛍️ Mercari Shop</h2>
+    <div class="balance" id="balanceDisplay">💰 $0.00</div>
+</div>
 
-    <!-- ВКЛАДКИ -->
-    <div id="catalog" class="tab-content active">
-        <div class="product-grid" id="productGrid">
-            <!-- Карточки товаров будут здесь -->
+<!-- ПОИСК -->
+<input class="search-box" id="searchInput" placeholder="🔍 Найти товар..." type="text">
+<button class="search-btn" id="searchBtn">🔍 Найти</button>
+
+<!-- ВКЛАДКИ -->
+<div id="catalog" class="tab-content active">
+    <div id="productGrid" class="product-grid">
+        <div style="grid-column:1/-1;" class="empty-state">
+            <div class="icon">🔍</div>
+            <p>Введите запрос и нажмите «Найти»</p>
         </div>
     </div>
+</div>
 
-    <div id="cart" class="tab-content">
-        <div id="cartItems"></div>
-        <div class="cart-total" id="cartTotal">Итого: $0.00</div>
-        <button class="buy-btn" id="checkoutBtn">💳 Оформить заказ</button>
+<div id="cart" class="tab-content">
+    <div id="cartItems"></div>
+    <div class="cart-total" id="cartTotal">Итого: $0.00</div>
+    <button class="buy-btn" id="checkoutBtn">💳 Оформить заказ</button>
+</div>
+
+<div id="orders" class="tab-content">
+    <div id="ordersList">
+        <div class="empty-state">
+            <div class="icon">📦</div>
+            <p>У вас пока нет заказов</p>
+        </div>
     </div>
+</div>
 
-    <div id="orders" class="tab-content">
-        <div id="ordersList">
+<!-- НИЖНЕЕ МЕНЮ -->
+<div class="bottom-menu">
+    <button class="active" data-tab="catalog">
+        <span class="icon">🏠</span>
+        Каталог
+    </button>
+    <button data-tab="cart">
+        <span class="icon">🛒</span>
+        Корзина (<span id="cartCount">0</span>)
+    </button>
+    <button data-tab="orders">
+        <span class="icon">📋</span>
+        Заказы
+    </button>
+</div>
+
+<script>
+// ============================================================
+// 1. TELEGRAM WEB APP
+// ============================================================
+const tg = window.Telegram.WebApp;
+tg.ready();
+tg.expand();
+
+const user = tg.initDataUnsafe?.user || { id: 123, first_name: 'Guest' };
+
+// ============================================================
+// 2. НАСТРОЙКИ
+// ============================================================
+// 👇 ЗАМЕНИ НА СВОЙ АДРЕС СЕРВЕРА
+// Для локального теста: http://localhost:5000
+// Для публичного: https://твой-сервер.ру/search
+const API_URL = 'http://localhost:5000/search';
+
+// ============================================================
+// 3. СОСТОЯНИЕ
+// ============================================================
+let state = {
+    balance: 0,
+    cart: [],
+    orders: [],
+    products: [],
+    currentTab: 'catalog',
+    loading: false
+};
+
+// ============================================================
+// 4. БАЛАНС
+// ============================================================
+function loadBalance() {
+    const saved = localStorage.getItem('balance');
+    state.balance = saved ? parseFloat(saved) : 0;
+    document.getElementById('balanceDisplay').textContent = `💰 $${state.balance.toFixed(2)}`;
+}
+loadBalance();
+
+function saveBalance() {
+    localStorage.setItem('balance', state.balance.toString());
+}
+
+// ============================================================
+// 5. ПОИСК ТОВАРОВ
+// ============================================================
+async function searchMercari(query) {
+    if (!query.trim()) {
+        showToast('❌ Введите запрос');
+        return;
+    }
+
+    state.loading = true;
+    const grid = document.getElementById('productGrid');
+    grid.innerHTML = `<div style="grid-column:1/-1;" class="loading"><span class="icon">⏳</span><br>Ищем на Mercari...</div>`;
+
+    try {
+        const response = await fetch(`${API_URL}?q=${encodeURIComponent(query)}`);
+        const data = await response.json();
+
+        if (data.error) {
+            grid.innerHTML = `
+                <div style="grid-column:1/-1;" class="empty-state">
+                    <div class="icon">❌</div>
+                    <p>${data.error}</p>
+                </div>
+            `;
+            state.loading = false;
+            return;
+        }
+
+        if (!data.results || data.results.length === 0) {
+            grid.innerHTML = `
+                <div style="grid-column:1/-1;" class="empty-state">
+                    <div class="icon">🔍</div>
+                    <p>Товары не найдены по запросу "${query}"</p>
+                </div>
+            `;
+            state.loading = false;
+            return;
+        }
+
+        // Сохраняем результаты
+        state.products = data.results.map((p, i) => ({ ...p, id: i + 1 }));
+        renderProducts(state.products);
+        state.loading = false;
+
+    } catch (e) {
+        console.error('Ошибка:', e);
+        grid.innerHTML = `
+            <div style="grid-column:1/-1;" class="empty-state">
+                <div class="icon">❌</div>
+                <p>Ошибка сервера. Запусти server.py или проверь API_URL</p>
+                <p style="font-size:12px;margin-top:8px;">Попробуй: http://localhost:5000/search?q=Nintendo</p>
+            </div>
+        `;
+        state.loading = false;
+    }
+}
+
+function renderProducts(products) {
+    const grid = document.getElementById('productGrid');
+    grid.innerHTML = products.map(p => `
+        <div class="product-card" onclick="addToCart(${JSON.stringify(p).replace(/"/g, '&quot;')})">
+            <img src="${p.image || 'https://via.placeholder.com/150x150?text=No+Image'}" 
+                 alt="${p.title}" 
+                 onerror="this.src='https://via.placeholder.com/150x150?text=No+Image'">
+            <div class="product-info">
+                <div class="product-title">${p.title}</div>
+                <div class="product-price">${p.price_usd ? '$' + p.price_usd.toFixed(2) : 'Цена не указана'}</div>
+                <div class="price-jpy">${p.price_jpy ? '¥' + p.price_jpy : ''}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ============================================================
+// 6. КОРЗИНА
+// ============================================================
+function addToCart(product) {
+    const existing = state.cart.find(item => item.title === product.title);
+    if (existing) {
+        existing.quantity += 1;
+    } else {
+        state.cart.push({ ...product, quantity: 1 });
+    }
+    tg.HapticFeedback.impactOccurred('light');
+    updateCartUI();
+    showToast(`✅ Добавлен: ${product.title.substring(0, 30)}...`);
+}
+
+function removeFromCart(index) {
+    state.cart.splice(index, 1);
+    updateCartUI();
+}
+
+function updateCartUI() {
+    const count = state.cart.reduce((sum, item) => sum + item.quantity, 0);
+    document.getElementById('cartCount').textContent = count;
+
+    const container = document.getElementById('cartItems');
+    if (state.cart.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">🛒</div>
+                <p>Корзина пуста</p>
+            </div>
+        `;
+        document.getElementById('cartTotal').textContent = 'Итого: $0.00';
+        return;
+    }
+
+    container.innerHTML = state.cart.map((item, idx) => `
+        <div class="cart-item">
+            <div>
+                <div>${item.title.substring(0, 30)}${item.title.length > 30 ? '...' : ''}</div>
+                <small>${item.quantity} × ${item.price_usd ? '$' + item.price_usd.toFixed(2) : '—'}</small>
+            </div>
+            <div>
+                <span style="font-weight:600;margin-right:12px;">
+                    ${item.price_usd ? '$' + (item.price_usd * item.quantity).toFixed(2) : '—'}
+                </span>
+                <button onclick="removeFromCart(${idx})" 
+                        style="background:none;border:none;color:red;cursor:pointer;font-size:18px;">✕</button>
+            </div>
+        </div>
+    `).join('');
+
+    const total = state.cart.reduce((sum, item) => sum + (item.price_usd || 0) * item.quantity, 0);
+    document.getElementById('cartTotal').textContent = `Итого: $${total.toFixed(2)}`;
+}
+
+// ============================================================
+// 7. ОФОРМЛЕНИЕ ЗАКАЗА
+// ============================================================
+async function checkout() {
+    if (state.cart.length === 0) {
+        showToast('❌ Корзина пуста');
+        return;
+    }
+
+    const total = state.cart.reduce((sum, item) => sum + (item.price_usd || 0) * item.quantity, 0);
+
+    if (state.balance < total) {
+        tg.showAlert(`❌ Недостаточно средств!\n\nБаланс: $${state.balance.toFixed(2)}\nСумма: $${total.toFixed(2)}`);
+        return;
+    }
+
+    state.balance -= total;
+    saveBalance();
+    document.getElementById('balanceDisplay').textContent = `💰 $${state.balance.toFixed(2)}`;
+
+    state.orders.push({
+        id: Date.now(),
+        items: [...state.cart],
+        total: total,
+        date: new Date().toLocaleString()
+    });
+
+    state.cart = [];
+    updateCartUI();
+    renderOrders();
+
+    tg.showAlert(`✅ Заказ оформлен!\n💸 Списанно: $${total.toFixed(2)}`);
+}
+
+// ============================================================
+// 8. ЗАКАЗЫ
+// ============================================================
+function renderOrders() {
+    const container = document.getElementById('ordersList');
+    if (state.orders.length === 0) {
+        container.innerHTML = `
             <div class="empty-state">
                 <div class="icon">📦</div>
                 <p>У вас пока нет заказов</p>
             </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = state.orders.map(order => `
+        <div class="order-item">
+            <div class="order-header">
+                <span>Заказ #${order.id}</span>
+                <span>${order.date}</span>
+            </div>
+            ${order.items.map(item => `
+                <div style="font-size:13px;color:var(--tg-theme-hint-color);">
+                    ${item.title.substring(0, 30)}... — ${item.quantity} × ${item.price_usd ? '$' + item.price_usd.toFixed(2) : '—'}
+                </div>
+            `).join('')}
+            <div class="order-total">Итого: $${order.total.toFixed(2)}</div>
         </div>
-    </div>
+    `).join('');
+}
 
-    <!-- НИЖНЕЕ МЕНЮ -->
-    <div class="bottom-menu">
-        <button class="active" data-tab="catalog">
-            <span class="icon">🏠</span>
-            Каталог
-        </button>
-        <button data-tab="cart">
-            <span class="icon">🛒</span>
-            Корзина (<span id="cartCount">0</span>)
-        </button>
-        <button data-tab="orders">
-            <span class="icon">📋</span>
-            Заказы
-        </button>
-    </div>
+// ============================================================
+// 9. ВКЛАДКИ
+// ============================================================
+function switchTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.getElementById(tab).classList.add('active');
+    document.querySelectorAll('.bottom-menu button').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.bottom-menu button[data-tab="${tab}"]`).classList.add('active');
+    state.currentTab = tab;
+    if (tab === 'orders') renderOrders();
+}
 
-    <script>
-        // ============================================================
-        // 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM WEB APP
-        // ============================================================
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand(); // растягиваем на весь экран
+// ============================================================
+// 10. TOAST
+// ============================================================
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+}
 
-        // Получаем данные пользователя
-        const user = tg.initDataUnsafe?.user || { id: 123, first_name: 'Guest' };
-        console.log('👤 Пользователь:', user);
+// ============================================================
+// 11. ИНИЦИАЛИЗАЦИЯ
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Поиск
+    document.getElementById('searchBtn').addEventListener('click', function() {
+        searchMercari(document.getElementById('searchInput').value);
+    });
+    document.getElementById('searchInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') searchMercari(this.value);
+    });
 
-        // ============================================================
-        // 2. СОСТОЯНИЕ (как в боте)
-        // ============================================================
-        let state = {
-            balance: 0,
-            cart: [],
-            orders: [],
-            products: [],
-            currentTab: 'catalog'
-        };
-
-        // ============================================================
-        // 3. ТЕСТОВЫЕ ТОВАРЫ (позже заменим на реальные из Apify)
-        // ============================================================
-        const mockProducts = [
-            { id: 1, title: 'Louis Vuitton モノグラム ショルダーバッグ', price_usd: 207.00, price_jpy: 30000, image: 'https://static.mercdn.net/item/detail/orig/photos/m87435084112_1.jpg?1725431234' },
-            { id: 2, title: 'Nintendo Switch 本体 有機ELモデル', price_usd: 220.00, price_jpy: 32000, image: 'https://static.mercdn.net/item/detail/orig/photos/m12330654583_1.jpg?1725431234' },
-            { id: 3, title: 'iPhone 14 Pro Max 256GB シノワ', price_usd: 690.00, price_jpy: 100000, image: 'https://static.mercdn.net/item/detail/orig/photos/m12330654583_2.jpg?1725431234' },
-            { id: 4, title: 'ルイヴィトン モノグラム ポーチ', price_usd: 72.40, price_jpy: 10500, image: 'https://static.mercdn.net/item/detail/orig/photos/m70186945300_1.jpg?1725431234' },
-            { id: 5, title: 'Louis Vuitton ヴェルニ 長財布', price_usd: 48.30, price_jpy: 7000, image: 'https://static.mercdn.net/item/detail/orig/photos/m87785465597_1.jpg?1725431234' },
-        ];
-
-        // ============================================================
-        // 4. ЗАГРУЗКА БАЛАНСА ИЗ БОТА
-        // ============================================================
-        function loadBalance() {
-            // В реальном проекте — запрос к API твоего бота
-            // Пока используем локальное хранилище
-            const saved = localStorage.getItem('balance');
-            state.balance = saved ? parseFloat(saved) : 0;
-            updateBalanceDisplay();
-        }
-
-        function saveBalance() {
-            localStorage.setItem('balance', state.balance.toString());
-        }
-
-        function updateBalanceDisplay() {
-            document.getElementById('balanceDisplay').textContent = `💰 $${state.balance.toFixed(2)}`;
-        }
-
-        // ============================================================
-        // 5. ОТОБРАЖЕНИЕ ТОВАРОВ
-        // ============================================================
-        function renderProducts(products) {
-            const grid = document.getElementById('productGrid');
-            if (!products || products.length === 0) {
-                grid.innerHTML = `
-                    <div style="grid-column: 1/-1;" class="empty-state">
-                        <div class="icon">🔍</div>
-                        <p>Товары не найдены</p>
-                    </div>
-                `;
-                return;
-            }
-
-            grid.innerHTML = products.map(p => `
-                <div class="product-card" onclick="addToCart(${p.id})">
-                    <img src="${p.image}" alt="${p.title}" onerror="this.src='https://via.placeholder.com/150x150?text=No+Image'">
-                    <div class="product-info">
-                        <div class="product-title">${p.title}</div>
-                        <div class="product-price">$${p.price_usd.toFixed(2)}</div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // ============================================================
-        // 6. КОРЗИНА
-        // ============================================================
-        function addToCart(productId) {
-            const product = state.products.find(p => p.id === productId);
-            if (!product) return;
-
-            const existing = state.cart.find(item => item.id === productId);
-            if (existing) {
-                existing.quantity += 1;
-            } else {
-                state.cart.push({ ...product, quantity: 1 });
-            }
-
-            tg.HapticFeedback.impactOccurred('light');
-            updateCartUI();
-            showToast(`✅ ${product.title.substring(0, 30)}... добавлен в корзину`);
-        }
-
-        function removeFromCart(productId) {
-            state.cart = state.cart.filter(item => item.id !== productId);
-            updateCartUI();
-        }
-
-        function updateCartUI() {
-            const count = state.cart.reduce((sum, item) => sum + item.quantity, 0);
-            document.getElementById('cartCount').textContent = count;
-
-            const container = document.getElementById('cartItems');
-            if (state.cart.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="icon">🛒</div>
-                        <p>Корзина пуста</p>
-                    </div>
-                `;
-                document.getElementById('cartTotal').textContent = 'Итого: $0.00';
-                return;
-            }
-
-            container.innerHTML = state.cart.map(item => `
-                <div class="cart-item">
-                    <div>
-                        <div>${item.title.substring(0, 30)}${item.title.length > 30 ? '...' : ''}</div>
-                        <small>${item.quantity} × $${item.price_usd.toFixed(2)}</small>
-                    </div>
-                    <div>
-                        <span style="font-weight:600;margin-right:12px;">$${(item.price_usd * item.quantity).toFixed(2)}</span>
-                        <button onclick="removeFromCart(${item.id})" style="background:none;border:none;color:red;cursor:pointer;">✕</button>
-                    </div>
-                </div>
-            `).join('');
-
-            const total = state.cart.reduce((sum, item) => sum + item.price_usd * item.quantity, 0);
-            document.getElementById('cartTotal').textContent = `Итого: $${total.toFixed(2)}`;
-        }
-
-        // ============================================================
-        // 7. ОФОРМЛЕНИЕ ЗАКАЗА
-        // ============================================================
-        async function checkout() {
-            if (state.cart.length === 0) {
-                showToast('❌ Корзина пуста');
-                return;
-            }
-
-            const total = state.cart.reduce((sum, item) => sum + item.price_usd * item.quantity, 0);
-
-            if (state.balance < total) {
-                tg.showAlert(`❌ Недостаточно средств!\n\n💰 Ваш баланс: $${state.balance.toFixed(2)}\n💸 Сумма заказа: $${total.toFixed(2)}`);
-                return;
-            }
-
-            // Списываем деньги
-            state.balance -= total;
-            saveBalance();
-            updateBalanceDisplay();
-
-            // Добавляем в заказы
-            state.orders.push({
-                id: Date.now(),
-                items: [...state.cart],
-                total: total,
-                date: new Date().toLocaleString()
-            });
-
-            // Очищаем корзину
-            state.cart = [];
-            updateCartUI();
-
-            tg.showAlert(`✅ Заказ оформлен!\n\n💸 Списанно: $${total.toFixed(2)}\n💰 Остаток: $${state.balance.toFixed(2)}`);
-
-            // Отправляем уведомление в бот
-            await notifyBotOrder(state.orders[state.orders.length - 1]);
-
-            // Переключаемся на заказы
-            switchTab('orders');
-            renderOrders();
-        }
-
-        // ============================================================
-        // 8. ОТОБРАЖЕНИЕ ЗАКАЗОВ
-        // ============================================================
-        function renderOrders() {
-            const container = document.getElementById('ordersList');
-            if (state.orders.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="icon">📦</div>
-                        <p>У вас пока нет заказов</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = state.orders.map(order => `
-                <div style="background:var(--tg-theme-secondary-bg-color);border-radius:12px;padding:12px;margin-bottom:12px;">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-                        <span>Заказ #${order.id}</span>
-                        <span>${order.date}</span>
-                    </div>
-                    ${order.items.map(item => `
-                        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--tg-theme-hint-color);">
-                            <span>${item.title.substring(0, 30)}...</span>
-                            <span>${item.quantity} × $${item.price_usd.toFixed(2)}</span>
-                        </div>
-                    `).join('')}
-                    <div style="text-align:right;font-weight:700;margin-top:8px;border-top:1px solid var(--tg-theme-hint-color);padding-top:8px;">
-                        Итого: $${order.total.toFixed(2)}
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // ============================================================
-        // 9. УВЕДОМЛЕНИЕ БОТУ
-        // ============================================================
-        async function notifyBotOrder(order) {
-            try {
-                // ВАЖНО: замени URL на адрес твоего бота
-                // Пока просто логируем
-                console.log('📤 Отправка уведомления в бот:', order);
-                
-                // Пример запроса к твоему боту (если у бота есть API)
-                // await fetch('https://your-bot-url.com/webhook', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({
-                //         user_id: user.id,
-                //         order: order
-                //     })
-                // });
-            } catch (e) {
-                console.error('Ошибка уведомления бота:', e);
-            }
-        }
-
-        // ============================================================
-        // 10. ПОИСК
-        // ============================================================
-        function searchProducts(query) {
-            if (!query.trim()) {
-                renderProducts(state.products);
-                return;
-            }
-            const filtered = state.products.filter(p => 
-                p.title.toLowerCase().includes(query.toLowerCase())
-            );
-            renderProducts(filtered);
-        }
-
-        // ============================================================
-        // 11. ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
-        // ============================================================
-        function switchTab(tab) {
-            // Скрываем все вкладки
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            // Показываем нужную
-            document.getElementById(tab).classList.add('active');
-            
-            // Обновляем кнопки меню
-            document.querySelectorAll('.bottom-menu button').forEach(btn => btn.classList.remove('active'));
-            document.querySelector(`.bottom-menu button[data-tab="${tab}"]`).classList.add('active');
-            
-            state.currentTab = tab;
-            
-            // Рендерим контент вкладки
-            if (tab === 'orders') renderOrders();
-        }
-
-        // ============================================================
-        // 12. TOAST-УВЕДОМЛЕНИЯ
-        // ============================================================
-        function showToast(message) {
-            // Просто используем Alert от Telegram
-            tg.showPopup({
-                title: '🛍️',
-                message: message,
-                buttons: [{ type: 'ok' }]
-            });
-        }
-
-        // ============================================================
-        // 13. ИНИЦИАЛИЗАЦИЯ
-        // ============================================================
-        document.addEventListener('DOMContentLoaded', function() {
-            // Загружаем баланс
-            loadBalance();
-            
-            // Загружаем товары
-            state.products = mockProducts;
-            renderProducts(state.products);
-            
-            // Поиск
-            document.getElementById('searchInput').addEventListener('input', function(e) {
-                searchProducts(e.target.value);
-            });
-
-            // Переключение вкладок
-            document.querySelectorAll('.bottom-menu button').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    switchTab(this.dataset.tab);
-                });
-            });
-
-            // Кнопка оформления заказа
-            document.getElementById('checkoutBtn').addEventListener('click', checkout);
-
-            // Показываем кнопку "Назад" в Telegram (если нужно)
-            tg.BackButton.show();
-            tg.BackButton.onClick(() => {
-                tg.close();
-            });
-
-            // Логируем запуск
-            console.log('✅ Mercari Shop Mini App запущен');
-            console.log('👤 Пользователь:', user);
-            console.log('💰 Баланс:', state.balance);
+    // Переключение вкладок
+    document.querySelectorAll('.bottom-menu button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            switchTab(this.dataset.tab);
         });
-    </script>
+    });
+
+    // Кнопка оформления заказа
+    document.getElementById('checkoutBtn').addEventListener('click', checkout);
+
+    // Кнопка "Назад" в Telegram
+    tg.BackButton.show();
+    tg.BackButton.onClick(() => tg.close());
+
+    console.log('✅ Mercari Shop Mini App с поиском запущен');
+    console.log('🔗 API URL:', API_URL);
+});
+</script>
 </body>
 </html>
